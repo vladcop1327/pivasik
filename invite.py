@@ -514,44 +514,40 @@ async def caller(update: Update, context: ContextTypes.DEFAULT_TYPE):
     current_group_data = get_group_data(chat_id)
 
     if current_group_data is None:
-        await update.message.reply_text(f"Ошибка: данные для этой группы не инициализированы.")
+        await update.message.reply_text("Ошибка: данные для этой группы не инициализированы.")
         return
-    
+
     participants = current_group_data["participants"]
     if not participants:
         await update.message.reply_text("Список участников пуст. Нет кого звать.")
         return
-    
-    num_to_call = 1
-    if context.args and context.args[0].isdigit():
-        num_to_call = int(context.args[0])
-        if num_to_call <= 0:
-            num_to_call = 1
-        elif num_to_call > len(participants):
-            num_to_call = len(participants)
-    
-    shuffled_participants = random.sample(participants, len(participants))
-    
-    message_parts = ["📢 *Время для новых участников!*"]
-    called_count = 0
-    for participant_entry in shuffled_participants:
-        if participant_entry['user_id'] != 0:
-            message_parts.append(f"@{participant_entry['username'].lstrip('@')}")
-        else:
-            message_parts.append(f"{participant_entry['username']}")
-        called_count += 1
-        if called_count >= num_to_call:
-            break
-            
-    if called_count > 0:
-        message_parts.append("\n_Присоединяйтесь к списку!_")
-        await update.message.reply_text(
-            " ".join(message_parts), 
-            parse_mode=ParseMode.MARKDOWN_V2
-        )
-        logging.info(f"Зазывала вызван в чате {chat_id}, позвано {called_count} участников.")
-    else:
-        await update.message.reply_text("Не удалось позвать никого. Убедитесь, что участники имеют юзернеймы.")
+
+    message_parts = ["📢 <b>Присоединяйтесь к розыгрышу:</b>"]
+    count = 0
+
+    for participant_entry in participants:
+        username = participant_entry.get('username', '')
+        user_id = participant_entry.get('user_id', 0)
+
+        if username.startswith("@"):
+            message_parts.append(username)
+            count += 1
+        elif user_id != 0:
+            message_parts.append(f"<a href='tg://user?id={user_id}'>пользователь</a>")
+            count += 1
+
+    if count == 0:
+        await update.message.reply_text("Ни у одного участника нет username или ID для упоминания.")
+        return
+
+    message_parts.append("\n<b>Если вы ещё не в списке — отправьте свой @username!</b>")
+
+    await update.message.reply_text(
+        "\n".join(message_parts),
+        parse_mode=ParseMode.HTML,
+        disable_web_page_preview=True
+    )
+    logging.info(f"В чате {chat_id} были позваны все участники. Всего позвано: {count}")
 
 async def randomize_winner(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
