@@ -19,7 +19,7 @@ TOKEN = os.environ.get("TOKEN", "7622381294:AAFE-gak873KscvFdmkIP-vadwiUefzytrw"
 DATA_FILE = "group_data.json"
 
 group_data = {}
-MAX_GROUPS = 9
+MAX_GROUPS = 9 
 
 def load_group_data():
     global group_data
@@ -87,6 +87,7 @@ async def is_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         admins = await context.bot.get_chat_administrators(update.effective_chat.id)
         is_user_admin = update.effective_user.id in [admin.user.id for admin in admins]
+        
         bot_member = await context.bot.get_chat_member(update.effective_chat.id, context.bot.id)
         is_bot_admin_with_pin_rights = bot_member.status in ["administrator", "creator"] and bot_member.can_pin_messages
         
@@ -108,7 +109,6 @@ async def check_bot_pin_rights(update: Update, context: ContextTypes.DEFAULT_TYP
         logging.error(f"Ошибка при проверке прав бота на закрепление в чате {update.effective_chat.id}: {e}")
         await update.message.reply_text("Произошла ошибка при проверке прав бота. Пожалуйста, убедитесь, что бот является администратором.")
         return False
-
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
@@ -195,7 +195,6 @@ async def list_participants(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logging.error(f"Ошибка при закреплении нового сообщения (ID: {sent_message.message_id}) в чате {chat_id}: {e}")
         await update.message.reply_text("Не удалось закрепить сообщение. Убедитесь, что у бота есть права администратора для закрепления сообщений.")
 
-
 async def reset_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     current_group_data = get_group_data(chat_id)
@@ -212,11 +211,10 @@ async def reset_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if current_group_data["last_pinned_message_id"]:
             try:
                 await context.bot.unpin_chat_message(chat_id=chat_id, message_id=current_group_data["last_pinned_message_id"])
-                logging.info(f"Предыдущее закрепленное сообщение (ID: {current_group_data['last_pinned_message_id']}) откреплено при сбросе в чате: {chat_id}")
+                logging.warning(f"Предыдущее закрепленное сообщение (ID: {current_group_data['last_pinned_message_id']}) откреплено при сбросе в чате: {chat_id}")
             except Exception as e:
                 logging.warning(f"Не удалось открепить предыдущее сообщение при сбросе игры в чате {chat_id}: {e}")
         
-
     current_group_data["user_data"] = {}
     current_group_data["participants"] = []
     current_group_data["collection_active"] = False
@@ -296,7 +294,7 @@ async def handle_username(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
 
     if not text.startswith("@"):
-        logging.info(f"Получен не-username текст '{text}' от {user_id} в чате {chat_id}.")
+        logging.info(f"Получен не-username текст '{text}' от {user_id} в чате {chat_id}. Игнорируется для регистрации username.")
         return
 
     user_data = current_group_data["user_data"]
@@ -346,7 +344,6 @@ async def handle_username(update: Update, context: ContextTypes.DEFAULT_TYPE):
     save_group_data()
     
     await list_participants(update, context)
-
 
 async def add_to_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
@@ -429,7 +426,6 @@ async def add_to_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if success_count > 0:
         await list_participants(update, context)
-
 
 async def remove_from_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
@@ -514,40 +510,63 @@ async def caller(update: Update, context: ContextTypes.DEFAULT_TYPE):
     current_group_data = get_group_data(chat_id)
 
     if current_group_data is None:
-        await update.message.reply_text("Ошибка: данные для этой группы не инициализированы.")
+        await update.message.reply_text(f"Ошибка: данные для этой группы не инициализированы.")
         return
 
-    participants = current_group_data["participants"]
-    if not participants:
-        await update.message.reply_text("Список участников пуст. Нет кого звать.")
+    if not await is_admin(update, context):
+        await update.message.reply_text("Команда доступна только администраторам.")
         return
+    
+    callable_users = {} 
 
-    message_parts = ["📢 <b>Присоединяйтесь к розыгрышу:</b>"]
-    count = 0
+    for p_entry in current_group_data["participants"]:
+        user_id = p_entry["user_id"]
+        username = p_entry["username"]
+        if user_id != 0:
+            callable_users[user_id] = {"username": username, "mention_string": f"<a href='tg://user?id={user_id}'>{username}</a>"}
+        else:
+            callable_users[username.lower()] = {"username": username, "mention_string": f"@{username.lstrip('@')}"}
+            
+    for u_id, u_info in current_group_data["user_data"].items():
+        if u_id in callable_users:
+            continue
+        
+        if u_info.get("username"):
+            if u_info["username"].lower() in callable_users:
+                continue
+            
+            callable_users[u_id] = {"username": u_info["username"], "mention_string": f"<a href='tg://user?id={u_id}'>{u_info['username']}</a>"}
+            
+    final_users_to_call = list(callable_users.values()) 
 
-    for participant_entry in participants:
-        username = participant_entry.get('username', '')
-        user_id = participant_entry.get('user_id', 0)
-
-        if username.startswith("@"):
-            message_parts.append(username)
-            count += 1
-        elif user_id != 0:
-            message_parts.append(f"<a href='tg://user?id={user_id}'>пользователь</a>")
-            count += 1
-
-    if count == 0:
-        await update.message.reply_text("Ни у одного участника нет username или ID для упоминания.")
+    if not final_users_to_call:
+        await update.message.reply_text("Список известных боту участников для вызова пуст.")
         return
-
-    message_parts.append("\n<b>Если вы ещё не в списке — отправьте свой @username!</b>")
-
-    await update.message.reply_text(
-        "\n".join(message_parts),
-        parse_mode=ParseMode.HTML,
-        disable_web_page_preview=True
-    )
-    logging.info(f"В чате {chat_id} были позваны все участники. Всего позвано: {count}")
+    
+    num_to_call = 1
+    if context.args and context.args[0].isdigit():
+        num_to_call = int(context.args[0])
+        if num_to_call <= 0:
+            num_to_call = 1
+        elif num_to_call > len(final_users_to_call):
+            num_to_call = len(final_users_to_call)
+    
+    shuffled_users = random.sample(final_users_to_call, num_to_call)
+    
+    message_parts = ["📢 *Время для новых участников!*"]
+    
+    for user_entry in shuffled_users:
+        message_parts.append(user_entry['mention_string'])
+            
+    if shuffled_users:
+        message_parts.append("\n_Присоединяйтесь к списку!_")
+        await update.message.reply_text(
+            " ".join(message_parts), 
+            parse_mode=ParseMode.HTML 
+        )
+        logging.info(f"Зазывала вызван в чате {chat_id}, позвано {len(shuffled_users)} участников.")
+    else:
+        await update.message.reply_text("Не удалось позвать никого. Убедитесь, что у боту известны участники с юзернеймами.")
 
 async def randomize_winner(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
@@ -582,7 +601,6 @@ async def randomize_winner(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(winner_text, parse_mode=ParseMode.HTML)
     logging.info(f"В чате {chat_id} выбран победитель: {winner_username} (ID: {winner_user_id}).")
 
-
 async def set_bot_commands(application):
     commands = [
         BotCommand("start", "Запустить сбор участников (только админы)"),
@@ -591,7 +609,7 @@ async def set_bot_commands(application):
         BotCommand("reset_game", "Сбросить данные игры (только админы)"),
         BotCommand("add_to_list", "Вручную добавить username(ы) в список (только админы)"),
         BotCommand("remove_from_list", "Вручную удалить username(ы) из списка (только админы)"),
-        BotCommand("caller", "Позвать участников присоединиться (всем)"),
+        BotCommand("caller", "Позвать участников присоединиться (только админы)"),
         BotCommand("random_winner", "Выбрать случайного победителя из списка (только админы)"),
     ]
     await application.bot.set_my_commands(commands)
@@ -609,6 +627,7 @@ async def main():
     application.add_handler(CommandHandler("remove_from_list", remove_from_list))
     application.add_handler(CommandHandler("caller", caller))
     application.add_handler(CommandHandler("random_winner", randomize_winner))
+    
     application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, handle_new_members))
     application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_username))
 
