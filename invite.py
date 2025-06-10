@@ -14,7 +14,7 @@ from telegram.constants import ParseMode
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-TOKEN = os.environ.get("TOKEN", "YOUR_TELEGRAM_BOT_TOKEN_HERE")
+TOKEN = os.environ.get("TOKEN", "7622381294:AAFE-gak873KscvFdmkIP-vadwiUefzytrw")
 
 DATA_FILE = "group_data.json"
 
