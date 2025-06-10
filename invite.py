@@ -14,7 +14,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 TOKEN = "7622381294:AAFE-gak873KscvFdmkIP-vadwiUefzytrw"
 
 group_data = {}
-MAX_GROUPS = 2
+MAX_GROUPS = 9
 
 def get_group_data(chat_id):
     if chat_id not in group_data:
