@@ -24,7 +24,8 @@ def get_group_data(chat_id):
         group_data[chat_id] = {
             "collection_active": False,
             "user_data": {},
-            "participants": []
+            "participants": [],
+            "last_pinned_message_id": None  
         }
         logging.info(f"Инициализированы данные для нового чата: {chat_id}. Всего активных групп: {len(group_data)}")
     return group_data[chat_id]
@@ -87,6 +88,12 @@ async def list_participants(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"Ошибка: данные для этой группы не инициализированы.")
         return
 
+    # Проверка админ-прав для закрепления/открепления
+    # Бот должен иметь права администратора для закрепления/открепления сообщений
+    if not await is_admin(update, context):
+        await update.message.reply_text("Для закрепления списка боту нужны права администратора.")
+        return 
+
     participants = current_group_data["participants"]
     if participants:
         text = "<b>Список участников:</b>\n"
@@ -97,10 +104,30 @@ async def list_participants(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 text += f"✨ <b>{i}.</b> <a href='tg://user?id={user_id}'>{username}</a>\n"
             else:
                 text += f"✨ <b>{i}.</b> {username}\n"
-        await update.message.reply_text(text, parse_mode=ParseMode.HTML)
     else:
-        await update.message.reply_text("Список пока пуст.")
-    logging.info(f"Список участников выведен для чата: {chat_id}")
+        text = "Список пока пуст."
+    
+    # Отправляем новое сообщение
+    sent_message = await update.message.reply_text(text, parse_mode=ParseMode.HTML)
+    logging.info(f"Список участников выведен для чата: {chat_id}. Message ID: {sent_message.message_id}")
+
+    # Открепляем предыдущее сообщение, если оно было
+    if current_group_data["last_pinned_message_id"]:
+        try:
+            await context.bot.unpin_chat_message(chat_id=chat_id, message_id=current_group_data["last_pinned_message_id"])
+            logging.info(f"Предыдущее закрепленное сообщение (ID: {current_group_data['last_pinned_message_id']}) откреплено в чате: {chat_id}")
+        except Exception as e:
+            logging.error(f"Ошибка при откреплении предыдущего сообщения в чате {chat_id}: {e}")
+
+    # Закрепляем новое сообщение
+    try:
+        await context.bot.pin_chat_message(chat_id=chat_id, message_id=sent_message.message_id, disable_notification=True)
+        current_group_data["last_pinned_message_id"] = sent_message.message_id
+        logging.info(f"Новое сообщение (ID: {sent_message.message_id}) закреплено в чате: {chat_id}")
+    except Exception as e:
+        logging.error(f"Ошибка при закреплении нового сообщения в чате {chat_id}: {e}")
+        await update.message.reply_text("Не удалось закрепить сообщение. Убедитесь, что у бота есть права администратора для закрепления сообщений.")
+
 
 async def reset_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
@@ -117,7 +144,16 @@ async def reset_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
     current_group_data["user_data"] = {}
     current_group_data["participants"] = []
     current_group_data["collection_active"] = False
+    current_group_data["last_pinned_message_id"] = None # Сбрасываем ID закрепленного сообщения при сбросе игры
     await update.message.reply_text("Данные игры были успешно сброшены. Сбор участников остановлен.")
+    
+    # Попытка открепить все сообщения при сбросе, если есть права
+    try:
+        await context.bot.unpin_all_chat_messages(chat_id=chat_id)
+        logging.info(f"Все сообщения откреплены в чате: {chat_id} при сбросе игры.")
+    except Exception as e:
+        logging.warning(f"Не удалось открепить все сообщения при сбросе игры в чате {chat_id}: {e}")
+
     logging.info(f"Данные игры сброшены для чата: {chat_id}")
 
 async def handle_new_members(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -257,7 +293,7 @@ async def add_to_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     if not context.args:
-        await update.message.reply_text("Пожалуйста, укажите один или несколько username для добавления. Пример: `/add_to_list @username1 @username2`")
+        await update.message.reply_text("Пожалуйста, укажите один или несколько username для добавления. Пример: /add_to_list @username1 @username2")
         logging.info(f"Администратор {user.id} в чате {chat_id} использовал /add_to_list без аргументов.")
         return
 
@@ -338,7 +374,7 @@ async def remove_from_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     if not context.args:
-        await update.message.reply_text("Пожалуйста, укажите один или несколько username для удаления. Пример: `/remove_from_list @username1 @username2`")
+        await update.message.reply_text("Пожалуйста, укажите один или несколько username для удаления. Пример: /remove_from_list @username1 @username2")
         logging.info(f"Администратор {user.id} в чате {chat_id} использовал /remove_from_list без аргументов.")
         return
 
