@@ -11,12 +11,12 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 TOKEN = os.environ.get("TOKEN", "7622381294:AAFE-gak873KscvFdmkIP-vadwiUefzytrw")
-API_ID = int(os.environ.get("API_ID", 17181316)) 
-API_HASH = os.environ.get("API_HASH", "23d91521902fbde6dd061d0b959de764git") 
+API_ID = int(os.environ.get("API_ID", 17181316))
+API_HASH = os.environ.get("API_HASH", "23d91521902fbde6dd061d0b959de764")
 
 DATA_FILE = "group_data.json"
 group_data = {}
-MAX_GROUPS = 9 
+MAX_GROUPS = 9
 
 def load_group_data():
     global group_data
@@ -156,7 +156,7 @@ async def stop_command(client: Client, message: types.Message):
     if not await is_admin(client, message):
         await message.reply_text("Команда доступна только администраторам, и бот должен иметь права на закрепление сообщений.")
         return
-    
+
     if not current_group_data["collection_active"]:
         await message.reply_text("Сбор участников не активен.")
         return
@@ -176,7 +176,7 @@ async def list_participants_command(client: Client, message: types.Message):
         return
 
     if not await check_bot_pin_rights(client, message):
-        return 
+        return
 
     participants = current_group_data["participants"]
     if participants:
@@ -190,7 +190,7 @@ async def list_participants_command(client: Client, message: types.Message):
                 text += f"✨ <b>{i}.</b> {username}\n"
     else:
         text = "Список пока пуст."
-    
+
     sent_message = await message.reply_text(text)
     logger.info(f"Список участников выведен для чата: {chat_id}. Message ID: {sent_message.id}")
 
@@ -222,7 +222,7 @@ async def reset_game_command(client: Client, message: types.Message):
     if not await is_admin(client, message):
         await message.reply_text("Команда доступна только администраторам, и бот должен иметь права на закрепление сообщений.")
         return
-    
+
     if await check_bot_pin_rights(client, message):
         if current_group_data["last_pinned_message_id"]:
             try:
@@ -230,7 +230,7 @@ async def reset_game_command(client: Client, message: types.Message):
                 logger.warning(f"Предыдущее закрепленное сообщение (ID: {current_group_data['last_pinned_message_id']}) откреплено при сбросе в чате: {chat_id}")
             except Exception as e:
                 logger.warning(f"Не удалось открепить предыдущее сообщение при сбросе игры в чате {chat_id}: {e}")
-        
+
     current_group_data["user_data"] = {}
     current_group_data["participants"] = []
     current_group_data["collection_active"] = False
@@ -316,7 +316,7 @@ async def handle_username(client: Client, message: types.Message):
 
     if user_id not in user_data:
         user_data[user_id] = {"invites": 0, "username": "", "invited_user_ids": set()}
-    
+
     invites = user_data[user_id]["invites"]
 
     for participant_entry in participants:
@@ -335,7 +335,7 @@ async def handle_username(client: Client, message: types.Message):
             )
             logger.warning(f"Username '{text}' отправленный пользователем {user_id} в чате {chat_id} уже занят.")
             return
-            
+
     if user_data[user_id].get("username") and user_data[user_id]["username"].lower() != text.lower():
         await message.reply_text(
             f"Вы уже отправляли username: {user_data[user_id]['username']}. "
@@ -356,7 +356,7 @@ async def handle_username(client: Client, message: types.Message):
     await message.reply_text("Вы успешно добавлены в список участников!")
     logger.info(f"Пользователь {user_id} ({text}) добавлен в список участников в чате {chat_id}.")
     save_group_data()
-    
+
     await list_participants_command(client, message)
 
 @app.on_message(filters.command("add_to_list", prefixes=["/", "!"]) & filters.group)
@@ -375,7 +375,7 @@ async def add_to_list_command(client: Client, message: types.Message):
     if not await is_admin(client, message):
         await message.reply_text("Команда доступна только администраторам, и бот должен иметь права на закрепление сообщений.")
         return
-    
+
     args = message.command
     if len(args) < 2:
         await message.reply_text("Пожалуйста, укажите один или несколько username для добавления. Пример: /add_to_list @username1 @username2")
@@ -384,27 +384,27 @@ async def add_to_list_command(client: Client, message: types.Message):
 
     success_count = 0
     failed_usernames = []
-    
+
     existing_usernames_in_participants = {p['username'].lower() for p in current_group_data['participants']}
-    
+
     for arg_username in args[1:]:
         target_username = arg_username.strip()
         if not target_username.startswith("@"):
             target_username = "@" + target_username
-            
+
         if target_username.lower() in existing_usernames_in_participants:
             failed_usernames.append(f"{target_username} (уже в списке)")
             logger.info(f"Администратор {user.id} в чате {chat_id} попытался добавить '{target_username}', но он уже в списке.")
             continue
 
         target_user_id = 0
-        
+
         found_user_id = None
         for uid, data in current_group_data["user_data"].items():
             if data.get("username", "").lower() == target_username.lower():
                 found_user_id = uid
                 break
-        
+
         if found_user_id:
             target_user_id = found_user_id
         else:
@@ -412,7 +412,7 @@ async def add_to_list_command(client: Client, message: types.Message):
 
         new_participant_entry = {"user_id": target_user_id, "username": target_username}
         current_group_data["participants"].append(new_participant_entry)
-        
+
         if target_user_id not in current_group_data["user_data"]:
             current_group_data["user_data"][target_user_id] = {
                 "invites": 2,
@@ -423,23 +423,23 @@ async def add_to_list_command(client: Client, message: types.Message):
             current_group_data["user_data"][target_user_id]["username"] = target_username
             if current_group_data["user_data"][target_user_id]["invites"] < 2:
                 current_group_data["user_data"][target_user_id]["invites"] = 2
-        
+
         success_count += 1
         logger.info(f"Администратор {user.id} в чате {chat_id} вручную добавил '{target_username}' в список.")
 
     save_group_data()
-    
+
     response_messages = []
     if success_count > 0:
         response_messages.append(f"Успешно добавлено {success_count} участник(ов) в список.")
     if failed_usernames:
         response_messages.append(f"Не удалось добавить: {', '.join(failed_usernames)}.")
-    
+
     if not response_messages:
         await message.reply_text("Не удалось обработать ни одного username.")
     else:
         await message.reply_text("\n".join(response_messages))
-    
+
     if success_count > 0:
         await list_participants_command(client, message)
 
@@ -459,7 +459,7 @@ async def remove_from_list_command(client: Client, message: types.Message):
     if not await is_admin(client, message):
         await message.reply_text("Команда доступна только администраторам, и бот должен иметь права на закрепление сообщений.")
         return
-    
+
     args = message.command
     if len(args) < 2:
         await message.reply_text("Пожалуйста, укажите один или несколько username для удаления. Пример: /remove_from_list @username1 @username2")
@@ -468,15 +468,15 @@ async def remove_from_list_command(client: Client, message: types.Message):
 
     success_count = 0
     failed_usernames = []
-    
+
     for arg_username in args[1:]:
         target_username = arg_username.strip()
         if not target_username.startswith("@"):
             target_username = "@" + target_username
-            
+
         participants = current_group_data["participants"]
         user_data = current_group_data["user_data"]
-        
+
         found_index = -1
         found_user_id = None
         for i, participant_entry in enumerate(participants):
@@ -487,7 +487,7 @@ async def remove_from_list_command(client: Client, message: types.Message):
 
         if found_index != -1:
             removed_entry = participants.pop(found_index)
-            
+
             if found_user_id and found_user_id in user_data:
                 del user_data[found_user_id]
                 logger.info(f"Данные пользователя {found_user_id} также очищены из user_data.")
@@ -500,13 +500,13 @@ async def remove_from_list_command(client: Client, message: types.Message):
                 if user_id_to_clear:
                     del user_data[user_id_to_clear]
                     logger.info(f"Данные вручную добавленного пользователя (ID {user_id_to_clear} в user_data) очищены.")
-            
+
             success_count += 1
             logger.info(f"Администратор {user.id} в чате {chat_id} вручную удалил '{target_username}' из списка.")
         else:
             failed_usernames.append(target_username)
             logger.info(f"Администратор {user.id} в чате {chat_id} попытался удалить '{target_username}', но он не найден.")
-    
+
     save_group_data()
 
     response_messages = []
@@ -535,18 +535,18 @@ async def caller_command(client: Client, message: types.Message):
     if not await is_admin(client, message):
         await message.reply_text("Команда доступна только администраторам.")
         return
-    
+
     all_members = []
     async for member in client.get_chat_members(chat_id):
         if member.user and not member.user.is_bot and not member.user.is_deleted:
             all_members.append(member.user)
-    
+
     if not all_members:
         await message.reply_text("В чате нет пользователей, которых можно было бы позвать.")
         return
 
     message_parts = ["📢 *Время для новых участников!*", "\n"]
-    
+
     chunk_size = 10
     emojis = await get_emojis()
     for i in range(0, len(all_members), chunk_size):
@@ -555,7 +555,7 @@ async def caller_command(client: Client, message: types.Message):
         for user_obj in chunk:
             mention_string = f"<a href='tg://user?id={user_obj.id}'>{random.choice(emojis)}</a>"
             current_chunk_mentions.append(mention_string)
-        
+
         await message.reply_text(" ".join(current_chunk_mentions), parse_mode=enums.ParseMode.HTML)
         await asyncio.sleep(0.1)
 
@@ -575,7 +575,7 @@ async def randomize_winner_command(client: Client, message: types.Message):
     if not await is_admin(client, message):
         await message.reply_text("Команда доступна только администраторам, так как это розыгрыш.")
         return
-    
+
     participants = current_group_data["participants"]
     if not participants:
         await message.reply_text("Список участников пуст. Нет никого для розыгрыша.")
@@ -584,7 +584,7 @@ async def randomize_winner_command(client: Client, message: types.Message):
     if len(participants) < 2:
         await message.reply_text("Для розыгрыша нужно как минимум 2 участника.")
         return
-    
+
     winner_entry = random.choice(participants)
     winner_username = winner_entry['username']
     winner_user_id = winner_entry['user_id']
@@ -593,15 +593,14 @@ async def randomize_winner_command(client: Client, message: types.Message):
         winner_text = f"🎉 *Поздравляем победителя:* <a href='tg://user?id={winner_user_id}'>{winner_username}</a> 🎉"
     else:
         winner_text = f"🎉 *Поздравляем победителя:* {winner_username} 🎉"
-    
+
     await message.reply_text(winner_text, parse_mode=enums.ParseMode.HTML)
     logger.info(f"В чате {chat_id} выбран победитель: {winner_username} (ID: {winner_user_id}).")
 
-async def main():
+if __name__ == "__main__":
     load_group_data()
     logger.info("Запуск бота Pyrogram...")
-    await app.run()
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        app.run() # Это единственный вызов, который вам нужен
+    except KeyboardInterrupt:
+        logger.info("Бот остановлен вручную.")
