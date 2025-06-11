@@ -11,8 +11,8 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 TOKEN = os.environ.get("TOKEN", "7622381294:AAFE-gak873KscvFdmkIP-vadwiUefzytrw")
-API_ID = int(os.environ.get("API_ID", 1234567)) 
-API_HASH = os.environ.get("API_HASH", "your_api_hash") 
+API_ID = int(os.environ.get("API_ID", 17181316)) 
+API_HASH = os.environ.get("API_HASH", "23d91521902fbde6dd061d0b959de764git") 
 
 DATA_FILE = "group_data.json"
 group_data = {}
